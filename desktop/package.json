@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "BouquetPHT: vineyards of the persistent homology transform, as a desktop app",
   "author": "Rohit Roy",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "private": true,
   "main": "main.js",
   "scripts": {
@@ -29,6 +29,7 @@
         "from": "..",
         "to": "bouquet",
         "filter": [
+          "LICENSE",
           "index.html",
           "css/**",
           "js/**",

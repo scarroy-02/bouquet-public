@@ -86,6 +86,8 @@ npx electron-builder           # package it for this system, in desktop/dist
 
 ## License
 
-MIT, see [LICENSE](LICENSE). The libraries it bundles keep their own licenses: the frontend's are listed in
-[`vendor/README.md`](vendor/README.md), and the server is built on CGAL, GUDHI, Eigen, Boost, cpp-httplib and
-nlohmann/json.
+Copyright © 2026 Rohit Roy. BouquetPHT is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License, version 3 or (at your option) any later version, see
+[LICENSE](LICENSE). The libraries it bundles keep their own licenses: the frontend's are listed in
+[`vendor/README.md`](vendor/README.md), and the server is built on CGAL (under the GPL and LGPL), GUDHI, Eigen,
+Boost, cpp-httplib and nlohmann/json.
