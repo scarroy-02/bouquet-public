@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BouquetPHT</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='none' stroke='%23a855f7' stroke-width='2'/%3E%3Ccircle cx='8' cy='8' r='2' fill='%23fbbf24'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/styles.css">
+<script src="vendor/plotly/plotly-2.27.0.min.js"></script>
+<script type="importmap">
+{
+    "imports": {
+        "three": "./vendor/three/build/three.module.js",
+        "three/addons/": "./vendor/three/examples/jsm/"
+    }
+}
+</script>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- Top Toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-section brand"><span>Bouquet<b>PHT</b></span></div>
+
+        <div class="toolbar-section">
+            <span class="toolbar-label">Preset</span>
+            <select id="presetSelect" style="width: 120px;">
+                <option value="" hidden>—</option>
+                <optgroup label="Surface">
+                    <option value="ellipsoid">Ellipsoid</option>
+                    <option value="torus">Torus</option>
+                    <option value="peanut">Peanut</option>
+                    <option value="lifted-tube">Deformed Ellipse, lifted tube</option>
+                    <option value="bumpy-torus">Bumpy Torus</option>
+                    <option value="mobius-band">Möbius Band</option>
+                </optgroup>
+                <optgroup label="Curve">
+                    <option value="trefoil">Trefoil Knot</option>
+                    <option value="ellipse">Ellipse (plane z = 0)</option>
+                    <option value="lifted-ellipse">Deformed Ellipse, lifted</option>
+                    <option value="figure-eight-knot">Figure-Eight Knot</option>
+                </optgroup>
+                <optgroup label="Complex">
+                    <option value="bouquet">Bouquet (S² ∨ S¹ ∨ S¹)</option>
+                    <option value="solid-cube">Solid Cube</option>
+                </optgroup>
+                <optgroup label="Implicit surface (exact sets)">
+                    <option value="implicit-torus">Torus</option>
+                    <option value="two-blobs">Two Blobs</option>
+                    <option value="three-blobs">Three Blobs</option>
+                    <option value="double-torus">Double Torus</option>
+                    <option value="chair">Chair</option>
+                    <option value="tanglecube">Tanglecube</option>
+                </optgroup>
+            </select>
+        </div>
+
+        <div class="toolbar-section">
+            <span class="toolbar-label">Transform</span>
+            <button class="btn btn-secondary active" data-action="mode" data-mode="pht" title="PHT: height functions in the directions of a loop on the sphere">PHT</button>
+            <button class="btn btn-secondary" data-action="mode" data-mode="radial" title="Radial: squared distance from centers along an observation loop">Radial</button>
+        </div>
+
+        <div class="toolbar-section">
+            <span class="toolbar-label">Import</span>
+            <button class="btn btn-secondary" data-action="open-surface" title="Open a complex: .json, .obj, .off or .csv (Ctrl O)">Complex</button>
+            <button class="btn btn-secondary" data-action="open-loop" title="Open an observation loop: .csv of x, y, z points">Loop</button>
+        </div>
+
+        <div class="toolbar-section">
+            <span class="toolbar-label">View</span>
+            <button class="btn btn-secondary" data-action="frame-all" title="Frame all (Home)">Frame All</button>
+            <button class="btn btn-secondary" id="orthoBtn" data-action="toggle-ortho" title="Perspective / orthographic (5)">Ortho</button>
+        </div>
+    </div>
+
+    <!-- Left Sidebar -->
+    <div class="sidebar-left">
+        <!-- Complex -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title"><span class="section-icon" style="background: var(--text-primary);"></span>Complex</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="object-name" id="complexName"></div>
+                <div class="slider-row" id="resolutionRow" title="Mesh level of the implicit surface: each step halves the facet size">
+                    <label>Mesh</label>
+                    <input type="range" id="resolution" min="3" max="6" step="1" value="4" style="accent-color: #a855f7;">
+                    <span class="val wide-val" id="resolutionVal"></span>
+                </div>
+                <div class="slider-row" id="subdivisionRow" hidden title="A finer mesh, 0 to 3 steps (each about 4 times the triangles). Coxeter and Midpoint put its vertices on the jet blend of the loaded mesh, with the current jet settings. Isotropic keeps them on the loaded mesh">
+                    <label>Subdivide</label>
+                    <input type="range" id="subdivision" min="0" max="3" step="1" value="0" style="accent-color: #a855f7;">
+                    <span class="val wide-val" id="subdivisionVal"></span>
+                </div>
+                <div class="slider-row" id="schemeRow" hidden title="Coxeter: a new mesh of the fitted surface, traced through a Coxeter triangulation of space with GUDHI's manifold tracing (S. Kachanovich); its triangles do not depend on the loaded ones, and it needs a closed mesh. Midpoint: every triangle split into four, keeping the loaded triangles' shapes. Isotropic: the loaded mesh itself remeshed into well-shaped triangles by CGAL, keeping its sharp edges and boundary, with no fitted surface; for meshes too poorly shaped or too sharp for a good fit (CAD models)">
+                    <label>Scheme</label>
+                    <select id="subdivisionScheme" style="flex: 1;">
+                        <option value="coxeter" id="coxeterOption" selected>Coxeter (GUDHI)</option>
+                        <option value="midpoint">Midpoint</option>
+                        <option value="isotropic">Isotropic (CGAL)</option>
+                    </select>
+                </div>
+                <button class="btn btn-secondary wide" data-action="open-surface">Open File…</button>
+                <div class="toggle-row" id="curveClosedRow" hidden><span>Closed curve</span><input type="checkbox" id="curveClosed" checked></div>
+                <div class="toggle-row" id="liftRow" hidden title="Lift this plane curve to the paraboloid: its own PHT sets are degenerate, and the PHT of the lift contains its radial transform (the direction (−2λc, 1) is the center c)"><span>Lift to z = λ (x² + y²)</span><input type="checkbox" id="liftCurve"></div>
+                <div class="slider-row" id="lambdaRow" hidden title="λ of the lift; any λ > 0 gives the same sets, up to a change of directions">
+                    <label>λ</label>
+                    <input class="num" type="number" id="liftLambda" min="0" step="0.01" style="flex: 1;">
+                </div>
+                <p class="hint" title="A .json simplicial complex (vertices and simplices up to tetrahedra), an .obj / .off mesh, a .csv of x, y, z points joined into a space curve, or a Bouquet2D figure (.sspl) with one closed curve">.json complex · .obj / .off mesh · .csv curve · .sspl (Bouquet2D)</p>
+            </div>
+        </div>
+
+        <!-- Observation Loop (radial) -->
+        <div class="section" id="loopSection" hidden>
+            <div class="section-header">
+                <span class="section-title"><span class="section-icon" style="background: var(--loop-color);"></span>Observation Loop</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="slider-row">
+                    <label>Loop</label>
+                    <select id="loopMode" style="flex: 1;">
+                        <option value="circle">Circle</option>
+                        <option value="csv">CSV File</option>
+                    </select>
+                </div>
+                <div id="circleProps">
+                    <div class="vec-row">
+                        <label>Center</label>
+                        <label class="axis"><span>x</span><input class="num" type="number" step="0.1" data-circle="center" data-i="0"></label>
+                        <label class="axis"><span>y</span><input class="num" type="number" step="0.1" data-circle="center" data-i="1"></label>
+                        <label class="axis"><span>z</span><input class="num" type="number" step="0.1" data-circle="center" data-i="2"></label>
+                    </div>
+                    <div class="vec-row">
+                        <label>Radius</label>
+                        <label class="axis"><span>r</span><input class="num" type="number" step="0.1" min="0" data-circle="radius"></label>
+                    </div>
+                    <div class="vec-row">
+                        <label>Normal</label>
+                        <label class="axis"><span>x</span><input class="num" type="number" step="0.1" data-circle="normal" data-i="0"></label>
+                        <label class="axis"><span>y</span><input class="num" type="number" step="0.1" data-circle="normal" data-i="1"></label>
+                        <label class="axis"><span>z</span><input class="num" type="number" step="0.1" data-circle="normal" data-i="2"></label>
+                    </div>
+                </div>
+                <div id="csvProps" hidden>
+                    <button class="btn btn-purple wide" data-action="open-loop">Open CSV…</button>
+                    <div class="toggle-row" style="margin: 4px 0;"><span>Open Loop (arc)</span><input type="checkbox" id="loopOpen"></div>
+                    <div class="loop-status" id="loopFileName">No file loaded</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Direction Loop (PHT) -->
+        <div class="section" id="directionSection">
+            <div class="section-header">
+                <span class="section-title"><span class="section-icon" style="background: var(--accent-amber);"></span>Direction Loop</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <table class="stats" id="directionStats"></table>
+                <button class="btn btn-purple wide" id="drawLoopBtn" data-action="draw-directions" title="Start a new loop: click on the sphere to place its points (Esc stops)">Draw Loop</button>
+                <div class="btn-pair">
+                    <button class="btn btn-secondary" data-action="reset-directions">Reset to Equator</button>
+                    <button class="btn btn-secondary" data-action="show-sphere">Show Sphere</button>
+                </div>
+                <ul class="hint-list">
+                    <li><b>Draw Loop</b>, then click on the sphere to place points; the loop closes through them</li>
+                    <li><b>Scroll</b> on the sphere to zoom in on a singularity</li>
+                    <li><b>Drag a handle</b> to move it on the sphere</li>
+                    <li><b>Drag the loop</b> to slide all of it</li>
+                    <li><b>Double-click the loop</b> to add a handle</li>
+                    <li><b>Del</b> on a handle removes it</li>
+                </ul>
+                <p class="hint">The sphere turns with the main view, so each direction points the same way as in the scene.</p>
+            </div>
+        </div>
+
+        <!-- Inflection Set (PHT) -->
+        <div class="section" id="inflectionSection">
+            <div class="section-header">
+                <span class="section-title"><span class="section-icon" style="background: #7c3aed;"></span>Inflection &amp; Simultaneity</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="slider-row" id="methodRow" title="How the normals and curvature are obtained: exactly from F (implicit presets), exactly on the jet blend (a smooth surface fitted through the mesh), or estimated at the vertices by jet fitting">
+                    <label>Method</label>
+                    <select id="curvatureMethod" style="flex: 1;">
+                        <option value="implicit" id="implicitOption" hidden disabled>Exact (from F)</option>
+                        <option value="jets">Jet blend (exact)</option>
+                        <option value="jet" selected>Jet fitting</option>
+                    </select>
+                </div>
+                <div class="slider-row" id="ringsRow" title="Rings of neighbours each jet is fitted to: more rings smooth the curve but move it">
+                    <label>Rings</label>
+                    <input type="range" id="rings" min="1" max="8" step="1" value="3" style="accent-color: #7c3aed;">
+                    <span class="val" id="ringsVal">3</span>
+                </div>
+                <div class="slider-row" id="degreeRow" title="Degree of the jets fitted at the vertices (2 to 4): 3 and 4 also fit the derivatives of the curvature, but follow noise more">
+                    <label>Jet degree</label>
+                    <input type="range" id="degree" min="2" max="4" step="1" value="2" style="accent-color: #7c3aed;">
+                    <span class="val" id="degreeVal">2</span>
+                </div>
+                <div class="slider-row" id="supportRow" hidden title="Radius of the weights that blend the jets, in average edge lengths: smaller follows the mesh more closely but adds small bumps; larger is smoother but moves the surface">
+                    <label>Fit radius</label>
+                    <input type="range" id="support" min="1.5" max="8" step="0.5" value="3" style="accent-color: #7c3aed;">
+                    <span class="val" id="supportVal">3</span>
+                </div>
+                <div class="btn-pair">
+                    <button class="btn btn-secondary" data-action="compute-inflection">Inflection Set</button>
+                    <button class="btn btn-secondary" data-action="compute-simultaneity">Simultaneity Set</button>
+                </div>
+                <table class="stats" id="inflectionStats"></table>
+                <table class="stats" id="simultaneityStats"></table>
+                <p class="hint"><b>Inflection set</b> (violet): directions where the height has a degenerate critical point. <b>Simultaneity set</b> (blue): directions where two critical points have the same height.</p>
+            </div>
+        </div>
+
+        <!-- Vineyard -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title"><span class="section-icon" style="background: var(--accent-purple);"></span>Vineyard</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="slider-row">
+                    <label>Samples</label>
+                    <input type="range" id="samples" min="8" max="600" step="4" value="64" style="accent-color: #a855f7;">
+                    <span class="val" id="samplesVal">64</span>
+                </div>
+                <button class="btn btn-primary wide compute-btn" data-action="compute"><span>Compute Vineyard</span></button>
+            </div>
+        </div>
+
+        <!-- Quick Keys -->
+        <div class="quick-keys">
+            <span><kbd>Drag</kbd> Orbit</span>
+            <span><kbd>Right-drag</kbd> Pan</span>
+            <span><kbd>Scroll</kbd> Zoom</span>
+            <span><kbd>Shift</kbd>+<kbd>Drag</kbd> Pan</span>
+            <span><kbd>1</kbd><kbd>3</kbd><kbd>7</kbd> Views</span>
+            <span><kbd>5</kbd> Ortho</span>
+            <span><kbd>Home</kbd> Frame all</span>
+            <span><kbd>Space</kbd> Play</span>
+        </div>
+    </div>
+
+    <!-- Viewport + Timeline -->
+    <div class="center-column">
+        <div class="canvas-container">
+            <div id="viewport"></div>
+            <span class="mode-badge" id="viewBadge">Persp</span>
+            <div class="gizmo-card"><canvas id="gizmo"></canvas></div>
+
+            <!-- Floating Direction Sphere (PHT) -->
+            <div class="float-panel" id="directionPanel">
+                <div class="float-panel-header">
+                    <span class="float-panel-title" style="color: var(--accent-amber);">Directions</span>
+                    <span class="panel-info">sphere of directions</span>
+                    <button class="btn btn-secondary panel-close" id="closeDirectionBtn">✕</button>
+                </div>
+                <div class="float-panel-content"><div id="directionView" class="plot"></div></div>
+                <div class="resize-handle n" data-dir="n"></div><div class="resize-handle s" data-dir="s"></div>
+                <div class="resize-handle e" data-dir="e"></div><div class="resize-handle w" data-dir="w"></div>
+                <div class="resize-handle ne" data-dir="ne"></div><div class="resize-handle nw" data-dir="nw"></div>
+                <div class="resize-handle se" data-dir="se"></div><div class="resize-handle sw" data-dir="sw"></div>
+            </div>
+
+            <!-- Floating Vineyard Plot -->
+            <div class="float-panel" id="vineyardPanel">
+                <div class="float-panel-header">
+                    <span class="float-panel-title" style="color: var(--accent-purple);">Vineyard 3D</span>
+                    <button class="btn btn-secondary panel-close" id="closeVineyardBtn">✕</button>
+                </div>
+                <div class="float-panel-content"><div id="vineyardPlot" class="plot"></div></div>
+                <div class="resize-handle n" data-dir="n"></div><div class="resize-handle s" data-dir="s"></div>
+                <div class="resize-handle e" data-dir="e"></div><div class="resize-handle w" data-dir="w"></div>
+                <div class="resize-handle ne" data-dir="ne"></div><div class="resize-handle nw" data-dir="nw"></div>
+                <div class="resize-handle se" data-dir="se"></div><div class="resize-handle sw" data-dir="sw"></div>
+            </div>
+
+            <!-- Floating Persistence Diagram -->
+            <div class="float-panel" id="persistencePanel">
+                <div class="float-panel-header">
+                    <span class="float-panel-title" style="color: var(--accent-red);">Persistence Diagram</span>
+                    <span class="panel-info" id="pdInfo"></span>
+                    <button class="btn btn-secondary panel-close" id="closePDBtn">✕</button>
+                </div>
+                <div class="float-panel-content"><div id="pdPlot" class="plot"></div></div>
+                <div class="resize-handle n" data-dir="n"></div><div class="resize-handle s" data-dir="s"></div>
+                <div class="resize-handle e" data-dir="e"></div><div class="resize-handle w" data-dir="w"></div>
+                <div class="resize-handle ne" data-dir="ne"></div><div class="resize-handle nw" data-dir="nw"></div>
+                <div class="resize-handle se" data-dir="se"></div><div class="resize-handle sw" data-dir="sw"></div>
+            </div>
+        </div>
+
+        <div class="timeline">
+            <div class="anim-row">
+                <button class="btn btn-secondary btn-icon" data-action="frame-prev" title="Previous center (←)">‹</button>
+                <button class="btn btn-purple" id="playBtn" data-action="play" title="Play / pause (Space)" style="width: 44px;">▶</button>
+                <button class="btn btn-secondary btn-icon" data-action="frame-next" title="Next center (→)">›</button>
+                <span class="toolbar-label" id="frameLabel" style="margin-left: 8px;">Direction</span>
+                <input class="num" type="number" id="frameInput" min="0" value="0" style="width: 56px;">
+                <span class="timeline-info" id="frameInfo"></span>
+                <span class="timeline-info" id="centerInfo" style="margin-left: auto;"></span>
+            </div>
+            <canvas id="timeline"></canvas>
+        </div>
+    </div>
+
+    <!-- Right Sidebar -->
+    <div class="sidebar-right">
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Display</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="toggle-row"><span>Complex</span><input type="checkbox" id="showComplex" checked></div>
+                <div class="toggle-row"><span>Wireframe</span><input type="checkbox" id="showWire"></div>
+                <div class="toggle-row"><span>Observation Loop</span><input type="checkbox" id="showLoop" checked></div>
+                <div class="toggle-row"><span>Centers</span><input type="checkbox" id="showCenters" checked></div>
+                <div class="toggle-row"><span>Grid</span><input type="checkbox" id="showGrid" checked></div>
+                <div class="toggle-row"><span>X-ray (Alt Z)</span><input type="checkbox" id="showXray"></div>
+                <div class="toggle-row" id="planeRow"><span>Direction plane</span><input type="checkbox" id="showPlane" checked></div>
+                <div class="toggle-row" id="inflectionRow"><span>Inflection set</span><input type="checkbox" id="showInflection" checked></div>
+                <div class="toggle-row" id="simultaneityRow"><span>Simultaneity set</span><input type="checkbox" id="showSimultaneity" checked></div>
+                <div class="toggle-row" id="surfaceSetsRow" title="Draw the sets on the surface too (the parabolic curve and the contact curves), not only on the sphere"><span>Sets on surface</span><input type="checkbox" id="showSurfaceSets" checked></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title"><span class="section-icon" style="background: var(--accent-purple);"></span>Plots</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="toggle-row"><span>Vineyard 3D</span><input type="checkbox" id="showVineyardPlot" checked></div>
+                <div class="toggle-row"><span>Persistence Diagram</span><input type="checkbox" id="showPD" checked></div>
+                <div class="toggle-row" id="directionToggleRow"><span>Direction Sphere</span><input type="checkbox" id="showDirectionPanel" checked></div>
+                <div class="sub-label">Show</div>
+                <div class="chips" id="dimChips">
+                    <button class="chip active" data-dim="0" title="Show H₀"><i style="background: #ef4444"></i>H₀</button>
+                    <button class="chip active" data-dim="1" title="Show H₁"><i style="background: #3b82f6"></i>H₁</button>
+                    <button class="chip active" data-dim="2" title="Show H₂"><i style="background: #22c55e"></i>H₂</button>
+                    <button class="chip active" data-dim="3" id="h3Chip" title="Show H₃" hidden><i style="background: #a3a3a3"></i>H₃</button>
+                </div>
+                <div class="chips" id="kindChips">
+                    <button class="chip active" data-kind="ord" title="Ordinary pairs (circles)"><b class="shape circle"></b>Ord</button>
+                    <button class="chip active" data-kind="rel" title="Relative pairs (squares)"><b class="shape square"></b>Rel</button>
+                    <button class="chip active" data-kind="ext" title="Extended pairs (diamonds)"><b class="shape diamond"></b>Ext</button>
+                </div>
+                <div class="slider-row" title="Hide pairs with |death − birth| below this fraction of the largest function value, e.g. the near-diagonal pairs a triangulation adds around critical points. Display only; nothing is recomputed.">
+                    <label>Min pers.</label>
+                    <input type="range" id="minPersistence" min="0" max="40" step="1" value="0" style="accent-color: #a855f7;">
+                    <span class="val wide-val" id="minPersistenceVal">Off</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Statistics</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <table class="stats" id="statsTable"></table>
+                <div class="stats-heading">Vineyard</div>
+                <table class="stats" id="vineyardStats"></table>
+            </div>
+        </div>
+
+        <div class="sidebar-copyright">
+            &copy; 2026 <a href="https://rohitroy.me" target="_blank" rel="noopener noreferrer">Rohit Roy</a>
+        </div>
+    </div>
+
+    <!-- Bottom Status Bar -->
+    <div class="statusbar">
+        <span id="status"></span>
+        <div class="legend">
+            <div class="legend-item"><span class="dot" style="background: var(--text-primary);"></span> Complex</div>
+            <div class="legend-item"><span class="dot" style="background: var(--loop-color);"></span> Loop</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-amber);"></span> Current</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-purple);"></span> Vineyard</div>
+        </div>
+    </div>
+</div>
+
+<input type="file" id="surfaceFile" accept=".json,.obj,.off,.csv,.txt,.xyz,.sspl" hidden>
+<input type="file" id="loopFile" accept=".csv,.txt,.xyz" hidden>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

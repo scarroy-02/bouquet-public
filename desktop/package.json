@@ -1,0 +1,60 @@
+{
+  "name": "bouquetpht",
+  "productName": "BouquetPHT",
+  "version": "0.1.0",
+  "description": "BouquetPHT: vineyards of the persistent homology transform, as a desktop app",
+  "author": "Rohit Roy",
+  "license": "MIT",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "44.10.0",
+    "electron-builder": "26.18.1"
+  },
+  "build": {
+    "appId": "me.rohitroy.bouquetpht",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js"
+    ],
+    "extraResources": [
+      {
+        "from": "..",
+        "to": "bouquet",
+        "filter": [
+          "index.html",
+          "css/**",
+          "js/**",
+          "vendor/**",
+          "assets/**",
+          "!assets/*.blend",
+          "server/server",
+          "server/server.exe"
+        ]
+      }
+    ],
+    "linux": {
+      "target": "AppImage",
+      "category": "Science"
+    },
+    "toolsets": {
+      "appimage": "1.0.3"
+    },
+    "win": {
+      "target": "portable"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.education",
+      "identity": "-",
+      "hardenedRuntime": false
+    }
+  }
+}
