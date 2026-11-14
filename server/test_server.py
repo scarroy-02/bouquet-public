@@ -163,6 +163,8 @@ def same(a, b):
 
 
 def main():
+    # The checks print ‖x‖∞, which Windows' default encoding for a pipe (cp1252) cannot write
+    sys.stdout.reconfigure(encoding="utf-8")
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
