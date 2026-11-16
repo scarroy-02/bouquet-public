@@ -108,6 +108,37 @@ button, input, select { font: inherit; color: inherit; }
 .sidebar-copyright a { color: var(--text-secondary); text-decoration: none; }
 .sidebar-copyright a:hover { color: var(--accent-blue); text-decoration: underline; }
 
+/* Report Bug button, under the copyright, as in Bouquet2D (the copyright's margin-top: auto already puts both
+   at the bottom) */
+.sidebar-bottom-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--border-color);
+}
+.report-bug-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    border-radius: 4px;
+    text-decoration: none;
+    background: rgba(220, 38, 38, 0.1);
+    color: #b91c1c;
+    border: 1px solid rgba(220, 38, 38, 0.3);
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.report-bug-btn span { font-size: 11px; }
+.report-bug-btn:hover {
+    background: rgba(220, 38, 38, 0.18);
+    color: #991b1b;
+    border-color: rgba(220, 38, 38, 0.5);
+}
+
 /* Collapsible Sections */
 .section { border-bottom: 1px solid var(--border-color); }
 .section-header {

@@ -1,0 +1,64 @@
+{
+  "name": "bouquet2d",
+  "productName": "Bouquet2D",
+  "version": "0.1.0",
+  "description": "Bouquet2D: symmetry sets, focal sets and vineyards of plane curves, as a desktop app",
+  "author": "Rohit Roy",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "44.10.0",
+    "electron-builder": "26.18.1"
+  },
+  "build": {
+    "appId": "me.rohitroy.bouquet2d",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js"
+    ],
+    "extraResources": [
+      {
+        "from": "../../LICENSE",
+        "to": "bouquet/LICENSE"
+      },
+      {
+        "from": "..",
+        "to": "bouquet",
+        "filter": [
+          "index.html",
+          "favicon.ico",
+          "css/**",
+          "js/**",
+          "vendor/**",
+          "assets/**",
+          "server/server",
+          "server/server.exe"
+        ]
+      }
+    ],
+    "linux": {
+      "target": "AppImage",
+      "category": "Science"
+    },
+    "toolsets": {
+      "appimage": "1.0.3"
+    },
+    "win": {
+      "target": "portable"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.education",
+      "identity": "-",
+      "hardenedRuntime": false
+    }
+  }
+}

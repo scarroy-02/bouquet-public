@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bouquet2D</title>
+    <script src="vendor/tailwind/tailwindcss-3.4.17.js"></script>
+    <script src="vendor/plotly/plotly-2.27.0.min.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="app-container">
+    <!-- Top Toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-section">
+            <span class="mode-badge mode-draw" id="modeIndicator">Draw</span>
+        </div>
+        
+        <div class="toolbar-section">
+            <span class="toolbar-label">Preset</span>
+            <select id="presetSelect" style="width: 90px;">
+                <option value="" disabled selected>Select...</option>
+                <option value="ellipse">Ellipse</option>
+                <option value="verticalEllipse">Vertical Ellipse</option>
+                <option value="astroid">Astroid</option>
+                <option value="bean">Kidney Bean</option>
+                <option value="cardioid">Cardioid</option>
+                <option value="offsetSpiral">Offset Spiral</option>
+                <option value="bishopStaff">Bishop Staff</option>
+                <option value="deformedEllipse">Deformed Ellipse</option>
+            </select>
+        </div>
+        
+        <div class="toolbar-section">
+            <span class="toolbar-label">Import</span>
+            <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+            <button class="btn btn-secondary" id="uploadCSVBtn" title="Upload CSV with x,y columns">
+                📄 CSV
+            </button>
+        </div>
+        
+        <div class="toolbar-section">
+            <button class="btn btn-green" id="newCurveBtn" style="display: flex; align-items: center; gap: 4px;">
+                + Curve <span class="curve-badge" id="curveCountBadge">1</span>
+            </button>
+        </div>
+        
+        <div class="toolbar-section">
+            <button class="btn btn-secondary" id="undoBtn" title="Undo (Ctrl+Z)">Undo (Ctrl+Z)</button>
+            <button class="btn btn-secondary" id="clearBtn">Clear</button>
+            <button class="btn btn-secondary" id="resetViewBtn" title="Reset View">Reset View</button>
+        </div>
+        
+        <div class="toolbar-section">
+            <button class="btn btn-primary" id="computeBtn">Compute SS</button>
+            <span class="toolbar-label" style="font-size: 8px; color: #888;">Low</span>
+            <input type="range" id="resolution" min="1" max="5" step="1" value="1" style="width: 50px; height: 3px;">
+            <span class="toolbar-label" style="font-size: 8px; color: #888;">High</span>
+        </div>
+        
+        <div class="toolbar-section">
+            <span class="toolbar-label">Line</span>
+            <input type="range" id="exportLineThickness" min="1" max="5" step="0.5" value="1" style="width: 60px; height: 3px;" title="Line thickness (live & export)">
+            <span class="toolbar-label" id="exportLineThicknessVal" style="font-family: 'JetBrains Mono', monospace; min-width: 22px; color: var(--text-muted);">1×</span>
+        </div>
+
+        <div class="toolbar-section" style="position: relative;">
+            <button class="btn btn-secondary" id="exportBtn">
+                Export ▾
+            </button>
+        </div>
+
+        <div class="toolbar-section" style="border-right: none;">
+            <button class="btn btn-secondary" id="saveFigBtn" title="Save spline configuration (.sspl)">Save</button>
+            <button class="btn btn-secondary" id="loadFigBtn" title="Load spline configuration (.sspl)">Load</button>
+            <input type="file" id="loadFigInput" accept=".sspl,application/json" style="display: none;">
+        </div>
+
+    </div>
+    
+    <!-- Left Sidebar -->
+    <div class="sidebar-left">
+        <!-- Focal Animation -->
+        <div class="section" id="focalSection">
+            <div class="section-header">
+                <span class="section-title">
+                    <span class="section-icon" style="background: var(--accent-green);"></span>
+                    Focal Animation
+                </span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="anim-row">
+                    <button class="btn btn-green" id="focalPlayBtn" style="width: 44px;">▶</button>
+                    <button class="btn btn-secondary btn-icon" id="focalStopBtn">◼</button>
+                    <input type="range" id="focalAnimSlider" min="0" max="1000" value="0" style="accent-color: #22c55e;">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Symmetry Set Animation -->
+        <div class="section" id="ssAnimSection">
+            <div class="section-header">
+                <span class="section-title">
+                    <span class="section-icon" style="background: var(--accent-red);"></span>
+                    SS Animation
+                </span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="anim-row">
+                    <button class="btn btn-red" id="ssPlayBtn" style="width: 44px; background: linear-gradient(135deg, #ef4444, #dc2626);">▶</button>
+                    <button class="btn btn-secondary btn-icon" id="ssStopBtn">◼</button>
+                    <input type="range" id="ssAnimSlider" min="0" max="1000" value="0" style="accent-color: #ef4444;">
+                </div>
+            </div>
+        </div>
+
+        <!-- Vineyard -->
+        <div class="section" id="vineyardSection">
+            <div class="section-header">
+                <span class="section-title">
+                    <span class="section-icon" style="background: var(--accent-purple);"></span>
+                    Vineyard
+                </span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="slider-row" style="margin-bottom: 6px;">
+                    <label>Loop</label>
+                    <select id="vineyardLoopType" style="flex: 1; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-size: 10px;">
+                        <option value="circular">Circular</option>
+                        <option value="custom">Custom Spline</option>
+                    </select>
+                </div>
+                <div id="circularLoopControls">
+                    <button class="btn btn-purple" id="vineyardModeBtn" style="width: 100%; margin-bottom: 8px;">⬡ Place Center</button>
+                    <div class="slider-row">
+                        <label>Radius</label>
+                        <input type="number" id="vineyardRadius" min="0.001" max="1000" step="0.1" value="1" style="width: 70px; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
+                    </div>
+                </div>
+                <div id="customLoopControls" style="display: none;">
+                    <button class="btn btn-purple" id="drawLoopBtn" style="width: 100%; margin-bottom: 4px;">✏️ Draw Loop</button>
+                    <button class="btn btn-secondary" id="clearLoopBtn" style="width: 100%; margin-bottom: 4px; font-size: 9px;">Clear Loop</button>
+                    <div class="toggle-row" style="margin: 4px 0;"><span style="font-size: 9px;">Open Loop (arc)</span><input type="checkbox" id="customLoopOpen"></div>
+                    <div style="font-size: 9px; color: var(--text-muted); text-align: center;" id="loopStatus">No loop drawn</div>
+                </div>
+                <div class="slider-row">
+                    <label>Samples</label>
+                    <input type="range" id="vineyardSamples" min="8" max="600" step="4" value="64" style="accent-color: #a855f7;">
+                    <span class="val" id="samplesVal">64</span>
+                </div>
+                <button class="btn btn-primary" id="computeVineyardBtn" style="width: 100%; margin: 5px 0;">Compute Vineyard</button>
+                <div class="anim-row">
+                    <button class="btn btn-secondary" id="playVineyardBtn" style="width: 44px;">▶</button>
+                    <button class="btn btn-secondary btn-icon" id="stopVineyardBtn">◼</button>
+                    <input type="range" id="vineyardAnimSlider" min="0" max="1000" value="0" style="accent-color: #a855f7;">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Radius Sweep -->
+        <div class="section" id="sweepSection">
+            <div class="section-header">
+                <span class="section-title">
+                    <span class="section-icon" style="background: #c084fc;"></span>
+                    Radius Sweep
+                </span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="slider-row">
+                    <label>Start R</label>
+                    <input type="number" id="radiusStart" min="0.001" max="1000" step="0.1" value="0.5" style="width: 70px; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
+                </div>
+                <div class="slider-row">
+                    <label>End R</label>
+                    <input type="number" id="radiusEnd" min="0.001" max="1000" step="0.1" value="5" style="width: 70px; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
+                </div>
+                <div class="toggle-row" style="margin: 4px 0;">
+                    <span style="font-size: 9px;">Show Sweep Preview</span>
+                    <input type="checkbox" id="showSweepPreview" checked>
+                </div>
+                <div class="slider-row">
+                    <label>Steps</label>
+                    <input type="range" id="radiusSteps" min="5" max="100" step="5" value="30" style="accent-color: #c084fc;">
+                    <span class="val" id="radiusStepsVal">30</span>
+                </div>
+                <button class="btn" id="computeRadiusSweepBtn" style="width: 100%; margin: 5px 0; background: linear-gradient(135deg, #c084fc, #a855f7); color: white;">Compute Sweep</button>
+                <div class="anim-row">
+                    <button class="btn btn-secondary" id="playRadiusSweepBtn" style="width: 44px;">▶</button>
+                    <button class="btn btn-secondary btn-icon" id="stopRadiusSweepBtn">◼</button>
+                    <input type="range" id="radiusSweepSlider" min="0" max="1000" value="0" style="accent-color: #c084fc;">
+                </div>
+                <div style="text-align: center; font-family: 'JetBrains Mono'; font-size: 10px; color: #c084fc; margin-top: 2px;" id="currentSweepRadius">R: --</div>
+            </div>
+        </div>
+
+        <!-- Spline Sweep -->
+        <div class="section" id="splineSweepSection">
+            <div class="section-header">
+                <span class="section-title">
+                    <span class="section-icon" style="background: #38bdf8;"></span>
+                    Spline Sweep
+                </span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div style="font-size: 9px; color: var(--text-muted); margin-bottom: 6px; line-height: 1.4;">
+                    Deforms the <b>custom spline observation loop</b> from a start shape to an end shape (curve stays fixed). Set Loop to <b>Custom Spline</b>, draw a loop, then capture.
+                </div>
+                <button class="btn btn-secondary" id="captureSplineStartBtn" style="width: 100%; margin-bottom: 4px; font-size: 9px;">Capture Start Loop</button>
+                <div style="font-size: 9px; color: var(--text-muted); text-align: center; margin-bottom: 4px;" id="splineStartStatus">No start loop</div>
+                <button class="btn btn-secondary" id="captureSplineEndBtn" style="width: 100%; margin-bottom: 4px; font-size: 9px;">Capture End Loop</button>
+                <div style="font-size: 9px; color: var(--text-muted); text-align: center; margin-bottom: 4px;" id="splineEndStatus">No end loop</div>
+                <div class="slider-row">
+                    <label>Steps</label>
+                    <input type="range" id="splineSweepSteps" min="4" max="60" step="2" value="20" style="accent-color: #38bdf8;">
+                    <span class="val" id="splineSweepStepsVal">20</span>
+                </div>
+                <button class="btn" id="computeSplineSweepBtn" style="width: 100%; margin: 5px 0; background: linear-gradient(135deg, #38bdf8, #0284c7); color: white;">Compute Spline Sweep</button>
+                <div class="anim-row">
+                    <button class="btn btn-secondary" id="playSplineSweepBtn" style="width: 44px;">▶</button>
+                    <button class="btn btn-secondary btn-icon" id="stopSplineSweepBtn">◼</button>
+                    <input type="range" id="splineSweepSlider" min="0" max="1000" value="0" style="accent-color: #38bdf8;">
+                </div>
+                <div style="text-align: center; font-family: 'JetBrains Mono'; font-size: 10px; color: #38bdf8; margin-top: 2px;" id="currentSplineStep">t: --</div>
+            </div>
+        </div>
+
+        <!-- Quick Keys -->
+        <div class="quick-keys">
+            <kbd>Click</kbd> Add · <kbd>Drag</kbd> Move · <kbd>Right-drag</kbd> Pan<br>
+            <kbd>Scroll</kbd> Zoom · <kbd>Del</kbd> Delete · <kbd>Ctrl+Z</kbd> Undo
+        </div>
+    </div>
+    
+    <!-- Canvas -->
+    <div class="canvas-container">
+        <canvas id="mainCanvas"></canvas>
+        
+        <!-- Floating Vineyard Plot -->
+        <div class="float-panel" id="vineyardPanel">
+            <div class="float-panel-header">
+                <span class="float-panel-title" style="color: var(--accent-purple);">Vineyard 3D</span>
+                <div style="display: flex; gap: 3px;">
+                    <!-- <button class="btn btn-secondary" id="expandVineyardBtn" style="padding: 2px 5px; font-size: 9px;">⤢</button> -->
+                    <button class="btn btn-secondary" id="closeVineyardBtn" style="padding: 2px 5px; font-size: 9px;">✕</button>
+                </div>
+            </div>
+            <div class="float-panel-content">
+                <div id="vineyardPlot"></div>
+            </div>
+            <div class="resize-handle n" data-dir="n"></div>
+            <div class="resize-handle s" data-dir="s"></div>
+            <div class="resize-handle e" data-dir="e"></div>
+            <div class="resize-handle w" data-dir="w"></div>
+            <div class="resize-handle ne" data-dir="ne"></div>
+            <div class="resize-handle nw" data-dir="nw"></div>
+            <div class="resize-handle se" data-dir="se"></div>
+            <div class="resize-handle sw" data-dir="sw"></div>
+        </div>
+
+        <!-- Floating Persistence Diagram -->
+        <div class="float-panel" id="persistencePanel">
+            <div class="float-panel-header">
+                <span class="float-panel-title" style="color: var(--accent-red);">Persistence Diagram</span>
+                <div style="display: flex; gap: 3px;">
+                    <!-- <button class="btn btn-secondary" id="expandPDBtn" style="padding: 2px 5px; font-size: 9px;">⤢</button> -->
+                    <button class="btn btn-secondary" id="closePDBtn" style="padding: 2px 5px; font-size: 9px;">✕</button>
+                </div>
+            </div>
+            <div class="float-panel-content">
+                <div id="persistencePlot"></div>
+            </div>
+            <div class="resize-handle n" data-dir="n"></div>
+            <div class="resize-handle s" data-dir="s"></div>
+            <div class="resize-handle e" data-dir="e"></div>
+            <div class="resize-handle w" data-dir="w"></div>
+            <div class="resize-handle ne" data-dir="ne"></div>
+            <div class="resize-handle nw" data-dir="nw"></div>
+            <div class="resize-handle se" data-dir="se"></div>
+            <div class="resize-handle sw" data-dir="sw"></div>
+        </div>
+    </div>
+    
+    <!-- Right Sidebar -->
+    <div class="sidebar-right">
+        <!-- Curves (per-curve open/closed) -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Curves</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div id="curveList" style="display: flex; flex-direction: column; gap: 4px;"></div>
+                <div style="font-size: 9px; color: var(--text-muted); margin-top: 6px; line-height: 1.4;">
+                    Check <b>Open</b> to treat a curve as a non-closed arc. Click a row to make it active.
+                </div>
+            </div>
+        </div>
+
+        <!-- Display Toggles -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Display</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="toggle-row"><span>Curve</span><input type="checkbox" id="showCurve" checked></div>
+                <div class="toggle-row"><span>Control Points</span><input type="checkbox" id="showControls" checked></div>
+                <div class="toggle-row"><span>Focal Set</span><input type="checkbox" id="showFocal" checked></div>
+                <div class="toggle-row"><span>Symmetry Set</span><input type="checkbox" id="showSS" checked></div>
+                <div class="toggle-row"><span>Observation Loop</span><input type="checkbox" id="showVineyardCircle" checked></div>
+                <div class="toggle-row"><span>Birth/Death Circles</span><input type="checkbox" id="showBirthDeathCircles"></div>
+            </div>
+        </div>
+        
+        <!-- Plot Windows -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Plot Windows</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="toggle-row"><span>Vineyard 3D</span><input type="checkbox" id="showVineyardPlot" checked></div>
+                <div class="toggle-row"><span>Persistence Diagram</span><input type="checkbox" id="showPD" checked></div>
+            </div>
+        </div>
+
+        <div class="sidebar-copyright">
+            &copy; 2026 <a href="https://rohitroy.me" target="_blank" rel="noopener noreferrer">Rohit Roy</a>
+        </div>
+
+        <div class="sidebar-bottom-actions">
+            <a href="https://cnrs.hal.science/LM-ORSAY/hal-05546179v1" target="_blank" rel="noopener noreferrer" class="cite-btn" title="Cite this work">
+                <span>❝</span> Cite This Work
+            </a>
+            <a href="https://tally.so/r/pbPY7J" target="_blank" rel="noopener noreferrer" class="report-bug-btn" title="Report a bug">
+                <span>⚠</span> Report Bug
+            </a>
+        </div>
+    </div>
+    
+    <!-- Bottom Status Bar -->
+    <div class="statusbar">
+        <span id="status">Click to add points or load a preset</span>
+        <div class="legend">
+            <div class="legend-item"><span class="dot" style="background: var(--accent-blue);"></span> Curve</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-green);"></span> Focal</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-red);"></span> SS</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-purple);"></span> Vineyard</div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Menu (positioned fixed via JS) -->
+<div id="exportMenu" class="export-menu">
+    <div class="export-menu-item" id="exportCanvas">Export Canvas (PNG)</div>
+    <div class="export-menu-divider"></div>
+    <div class="export-menu-item" id="exportVineyard">Export Vineyard 3D (PNG)</div>
+    <div class="export-menu-item" id="exportVineyardOBJ">Export Vineyard 3D (OBJ)</div>
+    <div class="export-menu-item" id="exportVineyardPLY">Export Vineyard 3D (PLY)</div>
+    <div class="export-menu-divider"></div>
+    <div class="export-menu-item" id="exportPD">Export Persistence Diagram (PNG)</div>
+    <div class="export-menu-divider"></div>
+    <div class="export-menu-item" id="exportAllPNG">Export All (PNG)</div>
+</div>
+
+<script src="js/state.js"></script>
+<script src="js/panels.js"></script>
+<script src="js/history.js"></script>
+<script src="js/geometry.js"></script>
+<script src="js/persistence.js"></script>
+<script src="js/presets.js"></script>
+<script src="js/events.js"></script>
+<script src="js/io.js"></script>
+<script src="js/animations.js"></script>
+<script src="js/render.js"></script>
+<script src="js/export.js"></script>
+<script src="js/init.js"></script>
+</body>
+</html>

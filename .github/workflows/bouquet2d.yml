@@ -1,17 +1,13 @@
-name: Desktop app
+name: Bouquet2D
 
-# Builds the desktop app (desktop/) for Linux, Windows and macOS, with the server built by
-# "make PORTABLE=1" and checked against GUDHI (server/test_server.py). Each run keeps the apps as
-# artifacts of the run (Actions tab); pushing a tag v* (e.g. v0.1.0, the version in desktop/package.json)
-# also attaches them to a GitHub release of that tag.
+# Builds the Bouquet2D desktop app (bouquet2d/desktop/) for Linux, Windows and macOS, with the server
+# built by "make PORTABLE=1" and checked against GUDHI (bouquet2d/server/test_server.py). Each run keeps
+# the apps as artifacts of the run (Actions tab); pushing a tag bouquet2d-v* (e.g. bouquet2d-v0.1.0, with
+# the version in bouquet2d/desktop/package.json) also attaches them to a GitHub release of that tag.
 on:
   push:
-    tags: ['v*']
+    tags: ['bouquet2d-v*']
   workflow_dispatch:
-
-env:
-  CGAL_VERSION: 6.2.1
-  EIGEN_VERSION: 3.4.0
 
 jobs:
   build:
@@ -29,22 +25,15 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: bouquet2d
     steps:
       - uses: actions/checkout@v7
-
-      - name: CGAL and Eigen (header-only)
-        run: |
-          mkdir -p deps && cd deps
-          curl -fsSLO https://github.com/CGAL/cgal/releases/download/v$CGAL_VERSION/CGAL-$CGAL_VERSION-library.tar.xz
-          curl -fsSLO https://gitlab.com/libeigen/eigen/-/archive/$EIGEN_VERSION/eigen-$EIGEN_VERSION.tar.gz
-          cmake -E tar xf CGAL-$CGAL_VERSION-library.tar.xz
-          cmake -E tar xf eigen-$EIGEN_VERSION.tar.gz
 
       - name: Server (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update && sudo apt-get install -y libboost-dev
-          make -C server -j4 PORTABLE=1 CGAL_INCLUDE=../deps/CGAL-$CGAL_VERSION/include EIGEN_INCLUDE=../deps/eigen-$EIGEN_VERSION
+          make -C server PORTABLE=1
           ldd server/server
 
       - name: Server (macOS)
@@ -53,9 +42,8 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: '12.0'
         run: |
           brew install boost
-          make -C server -j4 PORTABLE=1 CXX=clang++ CXXFLAGS="-std=c++17 -O3 -pthread -arch arm64 -arch x86_64" \
-            CPPFLAGS="-I$(brew --prefix boost)/include" \
-            CGAL_INCLUDE=../deps/CGAL-$CGAL_VERSION/include EIGEN_INCLUDE=../deps/eigen-$EIGEN_VERSION
+          make -C server PORTABLE=1 CXX=clang++ CXXFLAGS="-std=c++17 -O3 -pthread -arch arm64 -arch x86_64" \
+            CPPFLAGS="-I$(brew --prefix boost)/include"
           lipo -info server/server
           otool -L server/server
 
@@ -69,7 +57,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |
-          make -C server -j4 PORTABLE=1 CGAL_INCLUDE=../deps/CGAL-$CGAL_VERSION/include EIGEN_INCLUDE=../deps/eigen-$EIGEN_VERSION
+          make -C server PORTABLE=1
           ldd server/server.exe
 
       - uses: actions/setup-python@v7
@@ -86,22 +74,22 @@ jobs:
           node-version: 22
 
       - name: Desktop app
-        working-directory: desktop
+        working-directory: bouquet2d/desktop
         run: |
           npm ci
           npx electron-builder ${{ matrix.targets }} --publish never
 
       - uses: actions/upload-artifact@v7
         with:
-          name: BouquetPHT-${{ runner.os }}
+          name: Bouquet2D-${{ runner.os }}
           path: |
-            desktop/dist/*.AppImage
-            desktop/dist/*.exe
-            desktop/dist/*.dmg
+            bouquet2d/desktop/dist/*.AppImage
+            bouquet2d/desktop/dist/*.exe
+            bouquet2d/desktop/dist/*.dmg
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/bouquet2d-v')
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -114,4 +102,6 @@ jobs:
       - name: GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "BouquetPHT $GITHUB_REF_NAME" --generate-notes
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" \
+            --title "Bouquet2D ${GITHUB_REF_NAME#bouquet2d-}" --generate-notes

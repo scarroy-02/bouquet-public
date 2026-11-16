@@ -1,0 +1,120 @@
+name: BouquetPHT
+
+# Builds the BouquetPHT desktop app (bouquetpht/desktop/) for Linux, Windows and macOS, with the server
+# built by "make PORTABLE=1" and checked against GUDHI (bouquetpht/server/test_server.py). Each run keeps
+# the apps as artifacts of the run (Actions tab); pushing a tag bouquetpht-v* (e.g. bouquetpht-v0.1.1,
+# with the version in bouquetpht/desktop/package.json) also attaches them to a GitHub release of that tag.
+on:
+  push:
+    tags: ['bouquetpht-v*']
+  workflow_dispatch:
+
+env:
+  CGAL_VERSION: 6.2.1
+  EIGEN_VERSION: 3.4.0
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04 # its glibc (2.35) is older than most, so the server runs on those too
+            targets: --linux
+          - os: windows-latest
+            targets: --win
+          - os: macos-latest # the server is built for both Apple silicon and Intel
+            targets: --mac --arm64 --x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: bouquetpht
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: CGAL and Eigen (header-only)
+        run: |
+          mkdir -p deps && cd deps
+          curl -fsSLO https://github.com/CGAL/cgal/releases/download/v$CGAL_VERSION/CGAL-$CGAL_VERSION-library.tar.xz
+          curl -fsSLO https://gitlab.com/libeigen/eigen/-/archive/$EIGEN_VERSION/eigen-$EIGEN_VERSION.tar.gz
+          cmake -E tar xf CGAL-$CGAL_VERSION-library.tar.xz
+          cmake -E tar xf eigen-$EIGEN_VERSION.tar.gz
+
+      - name: Server (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y libboost-dev
+          make -C server -j4 PORTABLE=1 CGAL_INCLUDE=../deps/CGAL-$CGAL_VERSION/include EIGEN_INCLUDE=../deps/eigen-$EIGEN_VERSION
+          ldd server/server
+
+      - name: Server (macOS)
+        if: runner.os == 'macOS'
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '12.0'
+        run: |
+          brew install boost
+          make -C server -j4 PORTABLE=1 CXX=clang++ CXXFLAGS="-std=c++17 -O3 -pthread -arch arm64 -arch x86_64" \
+            CPPFLAGS="-I$(brew --prefix boost)/include" \
+            CGAL_INCLUDE=../deps/CGAL-$CGAL_VERSION/include EIGEN_INCLUDE=../deps/eigen-$EIGEN_VERSION
+          lipo -info server/server
+          otool -L server/server
+
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: UCRT64
+          install: make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-boost
+
+      - name: Server (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          make -C server -j4 PORTABLE=1 CGAL_INCLUDE=../deps/CGAL-$CGAL_VERSION/include EIGEN_INCLUDE=../deps/eigen-$EIGEN_VERSION
+          ldd server/server.exe
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Check the server against GUDHI
+        run: |
+          python -m pip install numpy gudhi
+          cd server && python test_server.py
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Desktop app
+        working-directory: bouquetpht/desktop
+        run: |
+          npm ci
+          npx electron-builder ${{ matrix.targets }} --publish never
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: BouquetPHT-${{ runner.os }}
+          path: |
+            bouquetpht/desktop/dist/*.AppImage
+            bouquetpht/desktop/dist/*.exe
+            bouquetpht/desktop/dist/*.dmg
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/bouquetpht-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" \
+            --title "BouquetPHT ${GITHUB_REF_NAME#bouquetpht-}" --generate-notes

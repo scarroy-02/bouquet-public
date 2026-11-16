@@ -1,4 +1,4 @@
-server/server
-server/server.exe
+*/server/server
+*/server/server.exe
 __pycache__/
 *.o
